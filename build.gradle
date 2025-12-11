@@ -8,6 +8,7 @@ group = 'com.karam'
 version = '0.0.1-SNAPSHOT'
 description = 'Pub review app'
 
+
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
