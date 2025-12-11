@@ -4,37 +4,25 @@ pipelines:
   branches:
     main:
       - step:
-          name: Build and Test
-          caches:
-            - maven
-          script:
-            - mvn clean package -DskipTests
-          artifacts:
-            - target/*.jar
-
-      - step:
-          name: Build and Push Docker Image
+          name: Build Docker Image
           services:
             - docker
           script:
-            - export IMAGE_NAME=your-dockerhub-username/spring-backend
-            - export TAG=${BITBUCKET_COMMIT::7}
-            - docker build -t $IMAGE_NAME:$TAG -t $IMAGE_NAME:latest .
+            - mvn clean package -DskipTests
+            - export IMAGE_NAME=$DOCKERHUB_USERNAME/spring-backend
+            - docker build -t $IMAGE_NAME:latest .
             - echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
-            - docker push $IMAGE_NAME:$TAG
             - docker push $IMAGE_NAME:latest
 
       - step:
           name: Deploy to DigitalOcean
           script:
-            - pipe: atlassian/ssh-run:0.4.1
-              variables:
-                SSH_USER: $DEPLOY_USER
-                SERVER: $DEPLOY_SERVER
-                COMMAND: |
-                  cd /path/to/your/app
-                  docker-compose pull backend
-                  docker-compose up -d backend
+            - apt-get update && apt-get install -y openssh-client
+            - mkdir -p ~/.ssh
+            - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+            - chmod 600 ~/.ssh/id_rsa
+            - ssh-keyscan -H $DEPLOY_SERVER >> ~/.ssh/known_hosts
+            - ssh $DEPLOY_USER@$DEPLOY_SERVER "cd /opt/myapp && docker-compose pull backend && docker-compose up -d backend"
 
 definitions:
   services:
