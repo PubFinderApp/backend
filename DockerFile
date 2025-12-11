@@ -1,50 +1,31 @@
-# ---------- Stage 1: Build with Gradle on Corretto 21 ----------
-FROM amazoncorretto:21-alpine AS builder
+# Build stage
+FROM gradle:8.5-jdk17 AS builder
 
-WORKDIR /workspace/app
+WORKDIR /app
 
-# Copy Gradle wrapper & build scripts first for better caching
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle* settings.gradle* gradle.properties* ./
-RUN chmod +x gradlew
+# Copy gradle files
+COPY build.gradle settings.gradle gradlew ./
+COPY gradle ./gradle
 
-# Warm dependency cache (non-fatal if some modules aren't present yet)
-RUN ./gradlew --no-daemon dependencies || true
+# Download dependencies
+RUN ./gradlew dependencies --no-daemon
 
-# Build Spring Boot fat jar (layered by default on SB 2.3+)
-COPY src src
-RUN ./gradlew --no-daemon clean bootJar -x test
+# Copy source code
+COPY src ./src
 
-# ---------- Stage 2: Extract layers using Spring Boot Layertools ----------
-FROM amazoncorretto:21-alpine AS extractor
-WORKDIR /workspace
-COPY --from=builder /workspace/app/build/libs/*.jar app.jar
-# Extract to /workspace/extracted (creates: dependencies/, snapshot-dependencies/, spring-boot-loader/, application/)
-RUN java -Djarmode=layertools -jar app.jar extract --destination /workspace/extracted
+# Build the application
+RUN ./gradlew bootJar --no-daemon
 
-# ---------- Stage 3: Minimal runtime on Corretto 21 ----------
-FROM amazoncorretto:21-alpine
+# Runtime stage
+FROM eclipse-temurin:17-jre
 
-ENV APP_HOME=/app \
-    JAVA_OPTS="-XX:MaxRAMPercentage=75.0" \
-    SPRING_PROFILES_ACTIVE=default
-WORKDIR $APP_HOME
+WORKDIR /app
 
-# Run as non-root
-RUN addgroup -S spring && adduser -S spring -G spring
+# Copy the built jar from builder stage
+COPY --from=builder /app/build/libs/*.jar app.jar
 
-# Copy layer directories' *contents* into the runtime image root for optimal caching
-COPY --from=extractor /workspace/extracted/dependencies/ ./
-COPY --from=extractor /workspace/extracted/snapshot-dependencies/ ./
-COPY --from=extractor /workspace/extracted/spring-boot-loader/ ./
-COPY --from=extractor /workspace/extracted/application/ ./
-
-# Healthcheck (Alpine busybox provides wget)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
-
+# Expose port
 EXPOSE 8080
-USER spring
-# Boot loader discovers classes/libs from the extracted layout
-ENTRYPOINT ["sh","-c","exec java $JAVA_OPTS org.springframework.boot.loader.JarLauncher"]
+
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]
