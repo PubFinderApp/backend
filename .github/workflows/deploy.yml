@@ -39,5 +39,16 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /opt/myapp
+            
+            # Pull the latest backend image
             docker compose pull backend
+            
+            # Stop and remove only the backend container
+            docker compose stop backend
+            docker compose rm -f backend
+            
+            # Start the backend container with the new image
             docker compose up -d backend
+            
+            # Clean up unused images to save space
+            docker image prune -f
