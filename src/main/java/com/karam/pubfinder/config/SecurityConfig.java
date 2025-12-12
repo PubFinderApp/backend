@@ -17,6 +17,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
+
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
@@ -55,10 +57,24 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOrigin("http://localhost:3000");
+
+        // Allow both local development and production frontend
+        config.setAllowedOrigins(Arrays.asList(
+                "http://localhost:3000",           // Local development
+                "http://207.154.237.0:3000"        // Production
+        ));
+
+        // Allow all HTTP methods
         config.addAllowedMethod("*");
+
+        // Allow all headers
         config.addAllowedHeader("*");
+
+        // Allow credentials (cookies, auth headers)
         config.setAllowCredentials(true);
+
+        // Expose headers to frontend
+        config.addExposedHeader("Authorization");
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
