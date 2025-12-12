@@ -41,14 +41,10 @@ jobs:
             cd /opt/myapp
             
             # Pull the latest backend image
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/spring-backend:latest
+            docker compose pull backend
             
-            # Stop and remove only the backend container
-            docker stop spring_backend || true
-            docker rm spring_backend || true
-            
-            # Start only the backend container
-            docker compose up -d --no-deps backend
+            # Restart only the backend service (this keeps network connections)
+            docker compose up -d --no-deps --force-recreate backend
             
             # Clean up unused images
             docker image prune -f
