@@ -11,10 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Grant execute permission for gradlew
@@ -41,14 +41,14 @@ jobs:
             cd /opt/myapp
             
             # Pull the latest backend image
-            docker compose pull backend
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/spring-backend:latest
             
             # Stop and remove only the backend container
-            docker compose stop backend
-            docker compose rm -f backend
+            docker stop spring_backend || true
+            docker rm spring_backend || true
             
-            # Start the backend container with the new image
-            docker compose up -d backend
+            # Start only the backend container
+            docker compose up -d --no-deps backend
             
-            # Clean up unused images to save space
+            # Clean up unused images
             docker image prune -f
